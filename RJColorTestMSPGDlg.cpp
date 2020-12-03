@@ -574,7 +574,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Color(LPVOID lpParam)
 			PDLG->sendCommand(cGray, cGrayLen);
 			Sleep(step7800);
 			PDLG->CA_Measure_SxSyLv();
-			str_Gray = strline[0];
+			str_Gray = (TCHAR)strline[0];
 			outColorFile << str_Gray << ',' << str_fx << ',' << str_fy << ',' << str_Lv << ',' << str_CCT << endl;
 
 		}
@@ -1358,6 +1358,20 @@ void CRJColorTestMSPGDlg::sendCommand(BYTE* pBHex, int HexLen)
 	PurgeComm(hCom, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);//清理串口 	
 	BOOL bRet = ::WriteFile(hCom, pBHex, HexLen, &dwWritenSize, &overlappedWrite);
 
+
+	if (!bRet)
+	{
+		if (ERROR_IO_PENDING == GetLastError()) {  //如果ReadFile挂起了，等待操作执行完
+			while (!bRet)
+			{
+				bRet = GetOverlappedResult(hCom, &overlappedWrite, &dwWritenSize, TRUE); //最后参数为TRUE，操作完成之前不会有返回
+				if (GetLastError() != ERROR_IO_INCOMPLETE) {
+					break;
+				}
+			}
+		}
+	}
+
 	CString IsSendOK;
 	CString text = _T("->  ");
 	CString textSend;
@@ -1371,25 +1385,15 @@ void CRJColorTestMSPGDlg::sendCommand(BYTE* pBHex, int HexLen)
 		m_EditShowC.ReplaceSel(IsSendOK);
 	}
 	else {
-		DWORD k = GetLastError();
-		if (k == ERROR_IO_PENDING) {
-			GetOverlappedResult(hCom, &overlappedWrite, &dwWritenSize, TRUE);
-			IsSendOK = _T(" - 发送成功!\n");
-			textSend = BTYEtoCString(pBHex, HexLen);
-			m_EditShowC.SetSel(-1);
-			m_EditShowC.ReplaceSel(text);
-			m_EditShowC.ReplaceSel(textSend);
-			m_EditShowC.ReplaceSel(IsSendOK);
-		}
-		else {
-			IsSendOK = _T(" - 发送失败!\n");
-			textSend = BTYEtoCString(pBHex, HexLen);
-			m_EditShowC.SetSel(-1);
-			m_EditShowC.ReplaceSel(text);
-			m_EditShowC.ReplaceSel(textSend);
-			m_EditShowC.ReplaceSel(IsSendOK);
-		}
+		
+		IsSendOK = _T(" - 发送失败!\n");
+		textSend = BTYEtoCString(pBHex, HexLen);
+		m_EditShowC.SetSel(-1);
+		m_EditShowC.ReplaceSel(text);
+		m_EditShowC.ReplaceSel(textSend);
+		m_EditShowC.ReplaceSel(IsSendOK);
 	}
+
 	PurgeComm(hCom, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);//清理串口 
 	//关闭overlappedWrite事件
 	if (overlappedWrite.hEvent != 0) {

@@ -97,6 +97,7 @@ public://串口&7800相关控件操作
 	afx_msg void OnBnClickedBtnSendtimingc();
 	afx_msg void OnBnClickedBtnSendpatternc();
 	afx_msg void OnBnClickedBtnSenduserc();
+	afx_msg void OnCbnSelchangeCombo7800step();
 
 public://串口&7800命令相关方法
 	bool CRJColorTestMSPGDlg::EnumComs(struct UartInfo** UartCom, LPDWORD UartComNumber);
@@ -105,7 +106,6 @@ public://串口&7800命令相关方法
 	void CRJColorTestMSPGDlg::CStringtoBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen);
 	void CRJColorTestMSPGDlg::CStringtoHexBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen);
 	
-	afx_msg void OnCbnSelchangeCombo7800step();
 };
 
 
