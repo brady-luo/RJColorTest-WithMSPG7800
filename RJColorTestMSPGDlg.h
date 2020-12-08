@@ -100,18 +100,10 @@ public://串口&7800相关控件操作
 	afx_msg void OnCbnSelchangeCombo7800step();
 
 public://串口&7800命令相关方法
-	bool CRJColorTestMSPGDlg::EnumComs(struct UartInfo** UartCom, LPDWORD UartComNumber);
+	void CRJColorTestMSPGDlg::EnumComsName(); //枚举所以可用串口的名称，显示在窗口，供参考
 	void CRJColorTestMSPGDlg::sendCommand(BYTE* pBHex, int HexLen);
 	CString CRJColorTestMSPGDlg::BTYEtoCString(BYTE* BHex, int Hexlen);
 	void CRJColorTestMSPGDlg::CStringtoBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen);
 	void CRJColorTestMSPGDlg::CStringtoHexBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen);
 	
-};
-
-
-//用于存放串口名和数量
-struct UartInfo
-{
-	DWORD UartNum;
-	WCHAR UartName[20];
 };

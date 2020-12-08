@@ -13,6 +13,11 @@
 #include <string>
 #include<time.h>  
 
+//EnumsCOMS
+#include <winioctl.h>
+#include<Setupapi.h>
+#pragma comment(lib, "Setupapi.lib")
+
 // CA-SDK
 #include "Const.h"       
 #include "CaEvent.h"     
@@ -21,6 +26,13 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+
+// The following define is from ntddser.h in the DDK. 用于枚举出串口在设备管理器显示的名称
+#ifndef GUID_CLASS_COMPORT
+DEFINE_GUID(GUID_CLASS_COMPORT, 0x86e0d1e0L, 0x8089, 0x11d0, 0x9c, 0xe4, \
+	0x08, 0x00, 0x3e, 0x30, 0x1f, 0x73);
+#endif
+
 
 using namespace std;
 
@@ -265,7 +277,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Gamma(LPVOID lpParam)
 		//显示正在状态
 		PDLG->m_EditShowC.SetWindowTextW(_T(""));//清空命令显示框，避免超出最大行数限制
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---GammaTest进行中!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---GammaTest进行中!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("GammaTest进行中..."));
 		PDLG->m_isTestOver.SetItemData(0, 2);  //设置红底
 		//获取系统时间，作为文件名称	
@@ -489,7 +501,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Gamma(LPVOID lpParam)
 		outGammaFile.close();
 		//显示完成状态
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---GammaTest完毕!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---GammaTest完毕!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("GammaTest完成"));
 		PDLG->m_isTestOver.SetItemData(0, 1);  //设置绿底
 	}
@@ -513,7 +525,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Color(LPVOID lpParam)
 
 		//显示正在状态
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---ColorTest进行中!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---ColorTest进行中!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("ColorTest进行中..."));
 		PDLG->m_isTestOver.SetItemData(0, 2);  //设置红底
 		//获取系统时间，作为文件名称
@@ -574,7 +586,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Color(LPVOID lpParam)
 			PDLG->sendCommand(cGray, cGrayLen);
 			Sleep(step7800);
 			PDLG->CA_Measure_SxSyLv();
-			str_Gray = (TCHAR)strline[0];
+			str_Gray = (char)strline[0];
 			outColorFile << str_Gray << ',' << str_fx << ',' << str_fy << ',' << str_Lv << ',' << str_CCT << endl;
 
 		}
@@ -582,7 +594,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Color(LPVOID lpParam)
 		outColorFile.close();
 		//显示完成状态
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---ColorTest完成!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---ColorTest完成!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("ColorTest完成"));
 		PDLG->m_isTestOver.SetItemData(0, 1);  //设置绿底 
 
@@ -608,7 +620,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Contrast(LPVOID lpParam)
 
 		//显示正在状态
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---ContrastTest进行中!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---ContrastTest进行中!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("ContrastTest进行中..."));
 		PDLG->m_isTestOver.SetItemData(0, 2);  //设置红底
 		//获取系统时间，作为文件名称	
@@ -643,7 +655,7 @@ DWORD CRJColorTestMSPGDlg::ThreadFunc_Contrast(LPVOID lpParam)
 		outContrastFile.close();
 		//显示完成状态
 		PDLG->m_EditShowC.SetSel(-1);
-		PDLG->m_EditShowC.ReplaceSel(_T("---ContrastTest完成!----\n"));
+		PDLG->m_EditShowC.ReplaceSel(_T("---ContrastTest完成!----\r\n"));
 		PDLG->m_isTestOver.SetItemText(0, 0, _T("ContrastTest完成"));
 		PDLG->m_isTestOver.SetItemData(0, 1);  //设置绿底
 
@@ -958,113 +970,6 @@ BOOL CRJColorTestMSPGDlg::PreTranslateMessage(MSG* pMsg)
 }
 
 
-//以下是串口&7800的代码实现
-//获取串口列表
-bool CRJColorTestMSPGDlg::EnumComs(struct UartInfo** UartCom, LPDWORD UartComNumber)
-{
-	//LPCTSTR 即const char *
-	*UartComNumber = 0;
-	HKEY hNewKey;
-	LONG lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, _T("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &hNewKey);  //只要读的权限就行
-
-	if (lResult != ERROR_SUCCESS) {
-		//pMainDlg->AddToInfOut(_T("打开COM注册表失败！！！"), 1, 1);
-		m_EditShowC.SetSel(-1);
-		m_EditShowC.ReplaceSel(_T("打开COM注册表失败！！！\n"));
-		return false;
-	}
-	else {
-		//pMainDlg->AddToInfOut(_T("打开COM注册表成功！！！"), 1, 1);
-		m_EditShowC.SetSel(-1);
-		m_EditShowC.ReplaceSel(_T("打开COM注册表成功！！！\n"));
-	}
-
-	//DWORD即unsigned long
-	DWORD ValuesNumber;
-	DWORD MaxValueNameLen;
-	DWORD MaxValueLen;
-	CString str;
-	//检索指定的子键下有多少个值项
-	lResult = RegQueryInfoKey(hNewKey, NULL, NULL, NULL, NULL, NULL, NULL, &ValuesNumber, &MaxValueNameLen, &MaxValueLen, NULL, NULL);
-	if (lResult != ERROR_SUCCESS)
-	{
-		RegCloseKey(hNewKey);
-		//pMainDlg->AddToInfOut(_T("检索连接在PC上的串口数量失败！！！"),1,1);
-		return false;
-	}
-	else
-	{
-		// str.Format(_T("连接在PC上的串口数量是：%ld"), ValuesNumber);
-		// pMainDlg->AddToInfOut(str,1,1);
-		*UartCom = (struct UartInfo*)malloc(ValuesNumber * sizeof(struct UartInfo));
-	}
-
-	DWORD index;
-	DWORD uartindex = 0;
-	//CHAR  ValueName[MAX_VALUE_NAME];
-	WCHAR ValueName[100];
-	//DWORD ValueNameSize = MAX_VALUE_NAME;
-	DWORD ValueNameSize;
-	DWORD DataType;
-	BYTE DataBuffer[100];
-	DWORD DataLen = 100;
-
-	//LPTSTR 即 char *, LPBYTE即 char *
-	//检索每个值项，获取值名，数据类型，数据
-	for (index = 0; index < ValuesNumber; index++)
-	{
-		memset(ValueName, 0, sizeof(ValueName));
-		memset(DataBuffer, 0, sizeof(DataBuffer));
-		ValueNameSize = 100;
-		DataLen = 100;
-		lResult = RegEnumValue(hNewKey, index, ValueName, &ValueNameSize, NULL, &DataType, DataBuffer, &DataLen);
-		if (lResult == ERROR_SUCCESS)
-		{
-			switch (DataType)
-			{
-			case REG_NONE:
-				// No value type               (0)
-				break;
-			case REG_SZ:
-				//Unicode nul terminated string (1)
-				break;
-			case REG_EXPAND_SZ:
-				// Unicode nul terminated string (2)
-				break;
-			case REG_BINARY:
-				// Free form binary              (3)
-				break;
-			case REG_DWORD:
-				// 32-bit number                (4)
-				break;
-			case REG_MULTI_SZ:
-				// Multiple Unicode strings    (7)
-				break;
-			default:
-				break;
-			}
-			memcpy((*UartCom)[uartindex].UartName, DataBuffer, DataLen);
-			(*UartCom)[uartindex].UartNum = ValuesNumber;
-			uartindex++;
-		}
-		else if (lResult == ERROR_NO_MORE_ITEMS)
-		{
-			//pMainDlg->AddToInfOut(_T("检索串口完毕！！！"),1,1);
-		}
-		else
-		{
-			DWORD dw = GetLastError();
-			// str.Format(_T("检索串口出错: 0x%08x"), dw);
-			// pMainDlg->AddToInfOut(str,1,1);
-			return FALSE;
-		}
-	}
-
-	*UartComNumber = uartindex;
-	RegCloseKey(hNewKey);
-	return TRUE;
-}
-
 //获取可用的串口
 void CRJColorTestMSPGDlg::OnBnClickedBtnFindcom()
 {
@@ -1072,47 +977,126 @@ void CRJColorTestMSPGDlg::OnBnClickedBtnFindcom()
 	m_ComNumber.SetCurSel(-1);
 	m_ComNumber.ResetContent();
 
-	DWORD UartComNumber = 0;
-	struct UartInfo* pUartCom;
-	BOOL bResult;
-	bResult = EnumComs(&pUartCom, &UartComNumber);
+	DWORD dwError = 0;
+	CString strError = _T("");
+
+	//打开注册表子键
+	HKEY hRegKey;
+	LONG lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, _T("HARDWARE\\DEVICEMAP\\SERIALCOMM"), 0, KEY_READ, &hRegKey);  //只要读的权限就行
+	if (lResult != ERROR_SUCCESS) {
+		dwError = GetLastError();
+		strError.Format(_T("打开COM注册表出错: 0x%08x \r\n"), dwError);
+		m_EditShowC.SetSel(-1);
+		m_EditShowC.ReplaceSel(strError);
+		return;
+	}
+	else {
+		m_EditShowC.SetSel(-1);
+		m_EditShowC.ReplaceSel(_T("打开COM注册表成功！！！\r\n"));
+	}
+
+	//检索指定的子键下有多少个值项
+	DWORD ValuesNumber;	
+	lResult = RegQueryInfoKey(hRegKey, NULL, NULL, NULL, NULL, NULL, NULL, &ValuesNumber, NULL, NULL, NULL, NULL);
+	if (lResult != ERROR_SUCCESS) {
+		dwError = GetLastError();
+		strError.Format(_T("检索连接在PC上的串口数量出错: 0x%08x \r\n"), dwError);
+		m_EditShowC.SetSel(-1);
+		m_EditShowC.ReplaceSel(strError);
+		RegCloseKey(hRegKey);
+		return;
+	}
+
+	//检索每个值项，获取串口名、串口号
 	DWORD index;
-
-	if (bResult)
+	WCHAR ValueName[100];
+	DWORD ValueNameSize;
+	BYTE DataBuffer[100];
+	DWORD DataLen;
+	CString strCOM;
+	char temp;
+	for (index = 0; index < ValuesNumber; index++)
 	{
-		//pMainDlg->AddToInfOut(_T("获取串口列表成功"), 1, 1);
-		m_EditShowC.SetSel(-1);
-		m_EditShowC.ReplaceSel(_T("获取串口列表成功！！！\n"));
-	}
-	else
-	{
-		//pMainDlg->AddToInfOut(_T("获取串口列表失败"), 1, 1);
-		m_EditShowC.SetSel(-1);
-		m_EditShowC.ReplaceSel(_T("获取串口列表失败！！！\n"));
+		memset(ValueName, 0, sizeof(ValueName));
+		memset(DataBuffer, 0, sizeof(DataBuffer));
+		ValueNameSize = 100;
+		DataLen = 100;
+		lResult = RegEnumValue(hRegKey, index, ValueName, &ValueNameSize, NULL, NULL, DataBuffer, &DataLen);
+		if (lResult == ERROR_SUCCESS) {
+			strCOM = _T("");
+			for (DWORD i = 0; i < DataLen; i++) {
+				temp = (char)DataBuffer[i];
+				if (temp != '\0') {
+					strCOM = strCOM + temp;
+				}
+			}
+			m_ComNumber.AddString(strCOM);  //将识别到的串口 添加到下拉类表
+		}
+		else if (lResult == ERROR_NO_MORE_ITEMS) {
+			//pMainDlg->AddToInfOut(_T("检索串口完毕！！！"),1,1);
+		}
+		else {
+			dwError = GetLastError();
+			strError.Format(_T("检索串口出错: 0x%08x \r\n"), dwError);
+			m_EditShowC.SetSel(-1);
+			m_EditShowC.ReplaceSel(strError);
+			return;
+		}
 	}
 
-	for (index = 0; index < UartComNumber; index++)
-	{
-		//pMainDlg->m_ComboBox.AddString(pUartCom[index].UartName);
-		m_ComNumber.AddString(pUartCom[index].UartName);
-	}
-
-	//malloc后需要释放
-	if (pUartCom != NULL) {
-		free(pUartCom);
-		pUartCom = NULL;
-	}
+	m_EditShowC.SetSel(-1);
+	m_EditShowC.ReplaceSel(_T("获取串口列表成功！！！\r\n"));
+	RegCloseKey(hRegKey);
+	EnumComsName();//枚举所以可用串口的名称，显示在窗口，供参考
 }
+
+//枚举所以可用串口的名称，显示在窗口，供参考
+void CRJColorTestMSPGDlg::EnumComsName()
+{
+	m_EditShowC.SetSel(-1);
+	m_EditShowC.ReplaceSel(_T("********************************************\r\n"));
+	m_EditShowC.ReplaceSel(_T("可用串口有:\r\n"));
+
+	GUID* guidDev = (GUID*)&GUID_CLASS_COMPORT;
+	HDEVINFO hDevInfo = SetupDiGetClassDevs(guidDev, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+
+	if (hDevInfo)
+	{
+		SP_DEVINFO_DATA SpDevInfo = { sizeof(SP_DEVINFO_DATA) };
+		for (DWORD index = 0; SetupDiEnumDeviceInfo(hDevInfo, index, &SpDevInfo); index++)
+		{
+			//MessageBox((LPCTSTR)SpDevInfo.cbSize);
+			TCHAR szName[512] = { 0 };
+			if (SetupDiGetDeviceRegistryProperty(hDevInfo, &SpDevInfo, SPDRP_FRIENDLYNAME,
+				NULL, (PBYTE)szName, sizeof(szName), NULL))
+			{
+				CString strComAllName, strComName, strComOpenName;
+				strComAllName.Format(_T("%s"), szName);
+				int posBeg = strComAllName.Find('(');
+				int posEnd = strComAllName.Find(')');
+				strComName = strComAllName.Mid(posBeg + 1, posEnd - posBeg - 1);
+				strComOpenName = strComName + _T(":  ");
+				//MessageBox(strComAllName);
+				//m_Combo.AddString(strComOpenName + strComAllName);
+				m_EditShowC.SetSel(-1);
+				m_EditShowC.ReplaceSel(strComAllName);
+				m_EditShowC.ReplaceSel(_T("\r\n"));
+			}
+		}
+	}
+	m_EditShowC.ReplaceSel(_T("********************************************\r\n"));
+}
+
 
 
 void CRJColorTestMSPGDlg::OnBnClickedBtnOpencom()
 {
-	CString cstr_COM;
+	CString cstr_COM, cstr_openCOM;
 	m_ComNumber.GetWindowText(cstr_COM);
-	cstr_COM = cstr_COM + ':';
+	cstr_openCOM = _T("\\\\.\\") + cstr_COM;  //需要用特殊格式打开串口，其中这个格式支持打开10以上的串口
 
 	if (ComIsOK == false) {
-		hCom = CreateFile(cstr_COM, //串口号  //_T("COM5:")
+		hCom = CreateFile(cstr_openCOM, //串口号
 			GENERIC_READ | GENERIC_WRITE, //允许读或写
 			0, //独占方式
 			NULL,
@@ -1127,7 +1111,7 @@ void CRJColorTestMSPGDlg::OnBnClickedBtnOpencom()
 			return;
 		}
 		//打开串口成功，ComIsOK 设为true; 串口选择下拉列表要置灰；该按钮文本改为关闭串口
-		CString cstr_openCOMok = _T("打开串口") + cstr_COM + _T("成功!\n");
+		CString cstr_openCOMok = _T("打开串口") + cstr_COM + _T("成功!\r\n");
 		m_EditShowC.SetSel(-1);
 		m_EditShowC.ReplaceSel(cstr_openCOMok);
 		ComIsOK = true;
@@ -1151,7 +1135,7 @@ void CRJColorTestMSPGDlg::OnBnClickedBtnOpencom()
 	else {
 		//第二次点击的时候，实现关闭串口的功能，串口选择下拉列表恢复；该按钮文本改为打开串口
 		CloseHandle(hCom);//关闭句柄
-		CString cstr_closeCOMok = _T("关闭串口") + cstr_COM + _T("成功~\n");
+		CString cstr_closeCOMok = _T("关闭串口") + cstr_COM + _T("成功~\r\n");
 		m_EditShowC.SetSel(-1);
 		m_EditShowC.ReplaceSel(cstr_closeCOMok);
 		ComIsOK = false;
@@ -1377,7 +1361,7 @@ void CRJColorTestMSPGDlg::sendCommand(BYTE* pBHex, int HexLen)
 	CString textSend;
 
 	if (bRet) {
-		IsSendOK = _T(" - 发送成功!\n");
+		IsSendOK = _T(" - 发送成功!\r\n");
 		textSend = BTYEtoCString(pBHex, HexLen);
 		m_EditShowC.SetSel(-1);
 		m_EditShowC.ReplaceSel(text);
@@ -1386,7 +1370,7 @@ void CRJColorTestMSPGDlg::sendCommand(BYTE* pBHex, int HexLen)
 	}
 	else {
 		
-		IsSendOK = _T(" - 发送失败!\n");
+		IsSendOK = _T(" - 发送失败!\r\n");
 		textSend = BTYEtoCString(pBHex, HexLen);
 		m_EditShowC.SetSel(-1);
 		m_EditShowC.ReplaceSel(text);
@@ -1431,7 +1415,7 @@ CString CRJColorTestMSPGDlg::BTYEtoCString(BYTE* BHex, int Hexlen)
 
 void CRJColorTestMSPGDlg::CStringtoBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen)
 {
-	*Hexlen = 0; //输出的16进制字符串长度
+	*Hexlen = 0;
 	for (int i = 0; i < strLen; i++) {
 		if (str[i] < '0' || str[i] > '9') {
 			continue;
@@ -1439,7 +1423,6 @@ void CRJColorTestMSPGDlg::CStringtoBYTE(CString str, int strLen, BYTE* BHex, int
 		BHex[*Hexlen] = (BYTE)str[i];
 		(*Hexlen)++;
 	}
-
 }
 
 void CRJColorTestMSPGDlg::CStringtoHexBYTE(CString str, int strLen, BYTE* BHex, int* Hexlen)
@@ -1470,7 +1453,7 @@ void CRJColorTestMSPGDlg::CStringtoHexBYTE(CString str, int strLen, BYTE* BHex, 
 				(*Hexlen)++;
 			}
 		}
-
 	}
 }
+
 
